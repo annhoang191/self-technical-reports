@@ -1,0 +1,115 @@
+# JWT /JOT/ - JSON Web Token
+Reading: https://developer.okta.com/blog/2017/08/17/why-jwts-suck-as-session-tokens
+## Overview
+- Là một chuẩn mở phục vụ việc truyền dữ liệu - dữ liệu được truyền đi dưới định dạng **JSON Object**
+  - JWT là độc lập (**self-contained**): mọi thông tin cần thiết sẽ chứa hết trong chuỗi token được tạo ra theo chuẩn JWT.
+  - JWT có thể được truyền dễ dàng: có thể nhét JWT vào HTTP header, body của POST, param trong query.
+- Thông tin được truyền đi theo chuẩn JWT được xác thực và tin cậy vì chúng đã được ký điện tử. Các chữ ký số này được tạo ra bằng thuật toán HMAC hoặc RSA.
+
+=> Có thể hiểu JWT là cơ chế **xác thực** ai là người tạo/sở hữu các dữ liệu JSON
+
+=> Không giới hạn kích thước dữ liệu chứa trong JWT (khác với cookie giới hạn tối đa 4096 bytes)
+
+=> Được kí mã hóa giúp xác thực tính toàn vẹn của dữ liệu trong JWTs
+
+- Các JWTs thường chỉ được ký mà không mã hóa: ai cũng có thể xem được dữ liệu trong JWTs mà không cần khóa vì mục đích của JWTs chỉ là xác thực dữ liệu được tạo ra bởi nguồn tin cậy chứ không phải là giữ bí mật.
+- Nếu muốn mã hóa JWTs thì cần sử dụng JWE.
+
+![](https://developer.okta.com/assets-jekyll/blog/why-jwts-suck-as-session-tokens/jwt-formula-98ad833a15fd1a66ed577442529bd0f49a291dc849b53ebfe18036fe867c6375.png)
+
+## Cấu trúc
+- Gồm 3 chuỗi phân cách bởi dấu `.`:  
+![](https://cask.scotch.io/2014/11/json-web-token-overview1.png)
+### Header: gồm 2 phần
+- Loại token: JWT nếu theo chuẩn JWT hoặc JWE
+- Thuật toán sử dụng để kí: RSA hoặc HMAC, SHA256
+
+   ```
+  {
+   "alg": "HS256",
+   "typ": "JWT"
+  }
+  ```
+### Payload:
+- Chứa các thông tin về thực thể (user) và các thông tin khác, gọi chung là claim
+- Là nơi chứa các thông tin chúng ta muốn trao đổi và các thông tin khác về token
+- 3 loại claim: private, public, registered
+   - Registered claims:  các claims được định nghĩa sẵn. Không bắt buộc phải có mặt trong JWT nhưng nên có các claim này, gồm:  iss (issuer), exp (expiration time), sub (subject), aud (audience)
+   - Public Claims:  claim do người dùng tạo ra, có thể là username và các thông tin khác
+   - Private Claims: A producer and consumer may agree to use claim names that are private. These are subject to collision, so use them with caution.
+
+ 	 ```
+  		{
+    		"sub": "1234567890",
+    		"name": "John Doe",
+    		"admin": true
+  		}
+	```
+- The payload is then Base64Url encoded to form the second part of the JSON Web Token.
+-  signed tokens this information, though protected against tampering, is readable by anyone. Do not put secret information in the payload or header elements of a JWT unless it is encrypted.
+### Signature
+- Là chuỗi hash được tạo bởi header, payload và một secret key lưu ở server. 
+
+=> Server sẽ có thể xác thực các tokens và tạo tokens mới dựa vào secret này.
+
+## Ứng dụng của JWT
+- Authorization with Token Based  Authorization
+- Information Exchange 
+
+## Các vấn đề bảo mật:
+- Không an toàn với tấn công man in the middle. If an attacker gets a valid token, can effectively impersonate. Even if the content is encrypted. => JWT thường được dùng kết hợp với SSL/TLS
+- Compromised Secret Key: The one key method makes it slightly less reliable. If the Key is leaked, it compromises the whole system.
+- No Push Messages: Due to the lack of session records in the DB, identifying a client per user is not possible – hence, we cannot push messages.
+
+# Authentication with JWT
+
+## Sử dụng JWT làm session token (không khuyến khích)
+### Luồng
+- Người dùng cần authenticate tới một website/API, server tạo ra một jwt chứa id của user và các thông tin khác.
+- JWT này được gửi lại tới browser/api của client và lưu dưới dạng session token trong cookie 
+- Khi người dùng truy cập tới các trang khác của website browser sẽ gửi kèm jwt lên server để server validate
+
+![](https://developer.okta.com/assets-jekyll/blog/why-jwts-suck-as-session-tokens/jwt-session-c66df0e71adcde705ac96cd3fd402b040222d35d956eda49249ec7e1717a738d.png)
+
+### Ưu điểm
+- Server có thể validate token gửi lên mà không phải hit vào database hay tạo thêm network request mà chỉ cần thực thi local code để decode chuỗi token gửi lên
+- Performance của trang được cải thiện
+
+### Nhược điểm
+- Kích thước JWT lớn hơn cookie. 
+- Vẫn có thể hit vào database: Do they often manipulate user data? Do they frequently use various fields on the user account to work? If so, your site falls into this category, and you’ll likely be talking to the cache server / database regardless of whether or not you’ve got a JWT.
+- JWT có kích thước lớn và cần CPU để thực hiện việc tạo chữ ký số nên sử dụng JWT đôi khi còn có thể làm web app chậm hơn.
+-  Việc tạo chữ kí số đôi khi không cần thiết: đa số các web framework hiện đều hỗ trợ việc kí và mã hóa cookie. This means that you get the exact same benefits as using JWT signatures without using JWTs themselves. In fact, in most web authentication cases, the JWT data is stored in a session cookie anyways, meaning that there are now two levels of signing. One on the cookie itself, and one on the JWT.
+
+## Sử dụng JWT làm API Tokens cho các API services
+
+### Cơ chế API Authentication
+- Main idea: cần lấy được một secret token từ service khi thực hiện cài đặt API.
+
+![](https://d2mxuefqeaa7sj.cloudfront.net/s_C4E6C0C638168A5D86467312C8359FBEED3BB8EFB36D66765F38981C5E3214B0_1537767304277_Screen+Shot+2018-09-21+at+10.44.52.png)
+
+- Client-side: tự tạo token bằng các libraries, sử dụng secret token để ký và sau đó gửi kèm với API request
+- Server-side: xác thực được client do request gửi lên có chứa token được ký
+
+### Mô hình API Tokens với JWT
+- Sẽ có một API riêng cho việc authentication: client sẽ được authenticate qua API này và nhận về một jwt.
+- Client sử dụng jwt đó để gửi các request tới các services khác
+- Các services này sử dụng jwt của client gửi lên để xác thực client.
+
+![](https://developer.okta.com/assets-jekyll/blog/why-jwts-suck-as-session-tokens/good-jwt-example-acc793ee5fa4143ed97670e367bc29167cbb7cc570729f6ce09601191a7c4dab.png)
+
+### Ưu điểm
+- JWTs make perfect sense because clients will be making requests frequently, with limited scope, and usually authentication data can be persisted in a stateless way without too much dependence on user data.
+- any type of service where you need three or more parties involved in a request, JWTs can also be useful. In this case the requesting party will have a token to prove their identity, and can forward it to the third (or 4th … nth) service without needing to incur a real-time validation each and every time.
+- Nếu sử dụng các protocol/framework như Single Sign On hay OAUth thì JWT có thể được sử dụng để tạo token.
+
+## Sử dụng JWT để trao đổi dữ liệu
+
+## Sử dụng JWT để authenticate trong các Single Page App
+
+- JWT có thể được sử dụng như một cơ chế authenticate không cần database do các thông tin cần thiết có thể lưu trong JWT.
+
+## Sử dụng JWT để xác thực các operation giữa các server
+
+- Người dùng đang login ở SERVER1, server này thực hiện việc chuyển hướng tới SERVER2 
+- SERVER1 tạo ra một JWT để xác thực người dùng với SERVER2. 2 server này không cần phải chia sẻ session với nhau để xác thực người dùng.

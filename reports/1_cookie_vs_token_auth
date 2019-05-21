@@ -1,0 +1,61 @@
+# Token vs Cookie - Access Tokens - Refresh Tokens
+- Reading: https://auth0.com/blog/refresh-tokens-what-are-they-and-when-to-use-them/
+- Giải quyết bài toán xác thực 
+
+![](https://cdn.auth0.com/blog/cookies-vs-tokens/cookie-token-auth.png)
+
+## Xác thực bằng Token - Token Authentication 
+- Stateless:  Server không cần tạo ra các bản ghi để xác định user có đang đăng nhập hay không hay JWTs nào đã được tạo. Mọi request tới server sẽ chứa một token để server xác thực. Token thường được gửi trong header Authorization có dạng Bearer {JWT} hoặc trong body của request POST hoặc trong params của một câu query. Trạng thái của user sẽ không lưu trên server mà sẽ chỉ lưu trong token bên phía client => Stateless
+- Flow:
+  - User nhập thông tin đăng nhập
+  - Server xác thực thông tin và trả về cho user một token đã được kí
+  - Token được lưu bên phía client, thường là trong local storage hoặc session storage hoặc thậm chí là trong cookie
+  - Các request sau đó sẽ chứa token này
+  - Server sẽ decode token để thực hiện request
+  - Sau khi logout token bên phía client sẽ bị hủy, bên phía server sẽ không phải làm gì
+![](https://cdn-images-1.medium.com/max/1600/1*PDry-Wb8JRquwnikIbJOJQ.png)
+- **Token**: thông tin/dữ liệu được dùng trong quá trình authorization
+- JWT là một chuẩn định nghĩa cách các token được gen và biểu diễn. 
+- 2 Loại token chính cần quan tâm: Access Token và Refresh Token
+
+### Access Tokens
+- Token này sẽ chứa các thông tin cần thiết để client có thể truy cập được resource.
+- Khi client truyền một access token tới server quản lý resource, server sẽ dựa vào thông tin trong token để xác định xem client có được authorize để sử dụng resource hay không.
+- Thường có expiration date và tồn tại ngắn hạn.
+- usually have an expiration date and are short-lived.
+![](https://cdn.auth0.com/blog/refresh-token/diag1.png)
+
+### Refresh Tokens
+- Chứa các thông tin cần thiết để client có thể lấy được access token mới.
+- Khi một resource yêu cầu có access token để truy cập thì client có thể sử dụng refresh token để yêu cầu một access token mới từ authentication server.
+- Thường được sử dụng để lấy access token mới sau khi access tokens cũ hết hạn hoặc lấy một access token lần đầu tiên để truy cập resource.
+- Refresh tokens có thể thể hết hạn nhưng tồn tại lâu hơn access tokens.
+![](https://cdn.auth0.com/blog/refresh-token/diag2.png)
+
+### Ưu điểm của xác thực bằng token:
+- Back-end ko cần phải lưu thông tin theo dõi tracking token do bản thân token chứa mọi thông tin đủ để yêu cầu xác thực tính hợp lệ cũng như truyền tải thông tin user 
+- Sử dụng token với Cross-Origin Resource Sharing (CORS) sẽ cho phép APIs trên nhiều services khác nhau và domains khác nhau. Một web app chạy trên domain1.com có thể tạo request authorize tới domain2.com. 
+- Cookies are bound to a single domain. A cookie created on the domain foo.com can't be read by the domain bar.com, while you can send tokens to any domain you like. This is especially useful for single page applications that are consuming multiple services that are requiring authorization - so I can have a web app on the domain myapp.com that can make authorized client-side requests to myservice1.com and to myservice2.com.
+
+### Nhược điểm:
+ - You have to store the token somewhere; while cookies are stored "out of the box". The locations that comes to mind are localStorage (con: the token is persisted even after you close browser window), sessionStorage (pro: the token is discarded after you close browser window, con: opening a link in a new tab will render that tab anonymous) and cookies (Pro: the token is discarded after you close the browser window. If you use a session cookie you will be authenticated when opening a link in a new tab, and you're immune to XSRF since you're ignoring the cookie for authentication, you're just using it as token storage. Con: cookies are sent out for every single request. If this cookie is not marked as https only, you're open to man in the middle attacks.)
+  - Requests to download a file, which is supposed to work only for authorized users, requires you to use File API.
+
+## Xác thực bằng session - Cookie/Session based authentication 
+- Stateful: an authentication record or session must be kept both server and client-side. The server needs to keep track of active sessions in a database, while on the front-end a cookie is created that holds a session identifier, thus the name cookie based authentication.
+- User nhập thông tin đăng nhập
+- Server xác thực thông tin và tạo ra một session record lưu vào database
+- Cookie chứa session id được trả lại cho client
+- Ở các request sau cookie chứa session id này sẽ được gửi lên server => server sẽ verify session id này với session id trong database để authen/author
+- Sau khi logout session sẽ bị hủy ở cả phía server lẫn client
+![](https://cdn-images-1.medium.com/max/1600/1*Hg1gUTXN5E3Nrku0jWCRow.png)
+
+## Ưu điểm:
+- Được các trình duyệt hỗ trợ sẵn => không phải implement gì thêm bên phía client
+- Cookies can be marked as "http-only" which makes them impossible to be read on the client side. This is better for XSS-attack protection.
+
+## Cons:
+  - Bound to a single domain. (So if you have a single page application that makes requests to multiple services, you can end up doing crazy stuff like a reverse proxy.)
+  - Session: sau khi người dùng được xác thực thành công, server sẽ tạo một bản ghi và lưu trên server => làm tăng kích thước server và khó mở rộng
+(This is usually done in memory and when there are many users authenticating, the overhead on your server increases.)
+  - Are sent out for every single request, (even for requests that don't require authentication). cookies are sent from browser if you want or if you don't want while tokens  are sent only if you add the headererrrou don't want while tokens  are sent only if you add the headererrrle tokens  are sent only if you add the headererrr

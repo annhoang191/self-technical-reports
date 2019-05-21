@@ -1,0 +1,161 @@
+# Thiết kế endpoint cho service sử dụng OAuth2
+Reading: https://fusionauth.io/docs/v1/tech/oauth/endpoints
+## Overview
+- OAuth2 endpoint là url mà client dùng để request các tokens cần thiết trong OAuth (access tokens, refresh tokens, authorization code)
+
+- Ví dụ:
+
+	```
+$ curl -i -H 'ContentType: x-www-form-urlencoded' \
+-X POST 'oauth_server/oauth/client_credential/accesstoken' \
+-d 'grant_type=client_credentials' \
+-H 'Authorization: Basic c3FIOG9vSGV4VHo4QzAySVg5T1JvNnJoZ3ExaVNyQWw6WjRsanRKZG5lQk9qUE1BVQ'
+	```
+- 2 endpoint chính cần quan tâm trong OAuth2: **Authorization** endpoint và **Token** endpoint
+
+![](http://tutorials.jenkov.com/images/oauth2/endpoints.png)
+
+## Authorization Endpoint
+- Dùng để tương tác với resource owner và get authorization để 
+- Dùng trong authorization code grant và implicit code grant
+- Các tham số trong request tới authorization endpoint:
+  - `response_type`
+  - `client_id`
+  - `redirect_uri`
+  - `scope` (optional)
+  - `state` (optional)
+### Authorization Code Grant
+- Endpoint
+
+```
+GET /oauth2/authorize?client_id={client_id}&redirect_uri={redirect_uri}&response_type=code
+```
+- Response
+  - `200`: thành công. Nếu user chưa login thì sẽ có một HTML form cho người dùng nhập thông tin đăng nhập
+  - `302`: user đã đăng nhập thì request sẽ redirect tới địa chỉ trong `redirect_uri`
+  - `400`: invalid request
+  - `500`: lỗi server
+  - `503`: request không được hoàn thành
+
+	```
+	HTTP/1.1 302 Found
+	Location: https://piedpiper.com/callback?
+		   code=pU2DHOWjSCVh6NJKi1ClhBYNKfuqbZVT
+		   &state=abc123
+		   &userState=Authenticated
+	```
+### Implicit Grant
+- Endpoint
+
+```
+GET /oauth2/authorize?client_id={client_id}&redirect_uri={redirect_uri}&response_type=token%20id_token
+```
+- Response
+  - `200`: thành công. Nếu user chưa login thì sẽ có một HTML form cho người dùng nhập thông tin đăng nhập
+  - `302`: user đã đăng nhập thì request sẽ redirect tới địa chỉ trong `redirect_uri`
+  - `400`: invalid request
+  - `500`: lỗi server
+  - `503`: request không được hoàn thành
+
+	```
+HTTP/1.1 302 Found
+Location: https://app.com/callback#
+           access_token={access_token}
+           &expires_in=3599
+           &token_type=Bearer
+           &id_token={id_token}
+           &scope={scope}
+           &state=abc123
+           &userState=Authenticated
+	```
+## Token Endpoint
+- Sử dụng để lấy access/refresh tokens
+- Được sử dụng bởi tất cả các flow ngoại trừ Implicit flow vì ở flow này access token được trả lại trực tiếp cho client và không sử dụng refresh tokens
+
+### Authorization code grant
+-  Endpoint: `POST /oauth2/token`
+- Request params:
+  - `code`: authorization code lấy được từ response trả về sau request lên authorization endpoint
+  - `grant_type`: authorization_code
+  - `redirect_uri`
+  - `client_id` 
+  - `scope`
+
+```
+POST /oauth2/token HTTP/1.1
+Host: {host}
+Content-Type: application/x-www-form-urlencoded
+Accept: */*
+Content-Length: 436
+client_id={client_id}&code={authorization_code}&grant_type=authorization_code&redirect_uri={callback_url}
+```
+- Response
+  - `200`: thành công.
+  - `400`: invalid request
+  - `500`: lỗi server
+  - `503`: request không được hoàn thành
+
+```
+{
+  "access_token" : "eyJhbGciOiJIUzI1.eyJleHAiOjE0ODUxNDA5ODQ.Mp0Pc",
+  "expires_in" : 3600,
+  "id_token" : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE0ODUxN.Mp0Pcwsz5VECK11Kf2ZZNF_SMKu5C",
+  "refresh_token": "ze9fi6Y9sMSf3yWp3aaO2w",
+  "token_type" : "Bearer",
+  "userId" : "3b6d2f70-4821-4694-ac89-60333c9c4165"
+}
+```
+
+### Resource Owner Password Credentials Grant Request
+-  Endpoint: `POST /oauth2/token`
+- Request params:
+  - `grant_type`: password
+  - `username/email`
+  - `password`  
+  - `redirect_uri`
+  - `client_id` 
+  - `scope`
+
+```
+POST /oauth2/token HTTP/1.1
+Host: h
+Content-Type: application/x-www-form-urlencoded
+Accept: */*
+Content-Length: 436
+client_id={client_id}&grant_type=password&username={username}&password={password}
+```
+- Response
+  - `200`: thành công.
+  - `400`: invalid request
+  - `500`: lỗi server
+  - `503`: request không được hoàn thành
+
+### Refresh tokens Grant Request
+- Sử dụng refresh token để lấy access token m
+-  Endpoint: `POST /oauth2/token`
+- Request params:
+  - `grant_type`: refresh_token
+  - `refresh_token`
+  - `client_id`
+
+```
+POST /oauth2/token HTTP/1.1
+Host: h
+Content-Type: application/x-www-form-urlencoded
+Accept: */*
+Content-Length: 436
+client_id={client_id}&grant_type=refresh_token&username={username}&refresh_token={refresh_token}
+```
+- Response
+  - `200`: thành công.
+  - `400`: invalid request
+  - `500`: lỗi server
+  - `503`: request không được hoàn thành
+
+## Authenticated request
+Các request sau khi được authenticate bằng OAuth2 sẽ có dạng
+
+```
+curl -H "Authorization: Bearer RsT5OjbzRn430zqMLgV3Ia" \
+https://api.authorization-server.com/1/me
+```

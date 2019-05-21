@@ -1,0 +1,154 @@
+# CircleCI 
+
+## What is CircleCI
+
+-  Tổng quan về CI: Là chu trình tích hợp tự động liên tục. Mỗi khi có code mới được commit lên repository thì CI sẽ tự động build một project hoàn chỉnh  và chạy test. 
+
+- CircleCI là một công cụ CI. Luồng hoạt động của CircleCI như sau:
+![](https://circleci.com/docs/assets/img/docs/arch.png)
+
+  -  Code được đẩy lên repository
+  - CircleCI API được trigger bởi webhook của service lưu trữ code như Github, Bitbucket
+  - Dựa vào file config.yml thì một bản build sẽ được dựng lên 
+  - Bản build được chạy trên môi trường của CircleCI
+  - Chạy ok sẽ bắn thông báo và có thể deploy sau đó.
+
+## Jobs, Steps, Workflows, Orbs
+
+### Jobs
+Jobs are a collection of Steps. All of the steps in the job are executed in a single unit which consumes a CircleCI container from your plan while it’s running.
+
+### Steps
+a collection of executable commands which are run during a job
+
+### Workflows
+A workflow is a set of rules for defining a collection of jobs and their run order. 
+
+### Orbs
+Shareable packages of configuration elements, including jobs, commands, and executors
+
+## CircleCI config
+- Được viết dưới dạng file yml và lưu tại `.circleci/config.yml`
+- Cấu trúc của yaml là dạng `key: value`
+  - Các cặp key-value có thể lồng nhau như sau:
+
+    ```
+     key:
+        another_key: "another value"
+   ```
+  - Sequence:
+
+    ```
+    simulation:
+      - within: "a simulation"
+      - without:
+         a_glitch: "in the matrix"
+     ```
+
+## CircleCI for a RoR Project
+
+```
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/ruby:2.5.1-node-browsers
+      - image: circleci/mysql:5.6
+        environment:
+          RAILS_ENV: test
+          MYSQL_ALLOW_EMPTY_PASSWORD: true
+          DB_HOST: 127.0.0.1
+
+    working_directory: ~/project
+
+    steps:
+      - checkout
+      - run:
+          name: Which bundler?
+          command: bundle -v
+
+      - restore_cache:
+          keys:
+            - bundle-v2-{{ checksum "Gemfile.lock" }}
+            - bundle-v2-
+
+      - run:
+          name: Configure bundler
+          command: |
+            echo 'export BUNDLER_VERSION=$(cat Gemfile.lock | tail -1 | tr -d " ")' >> $BASH_ENV
+            source $BASH_ENV
+            gem install bundler
+
+      - run:
+          name: Install dependencies
+          command: |
+            bundle check --path vendor/bundle || bundle install --jobs=4 --retry=3 --path vendor/bundle
+
+
+      - save_cache:
+          key: g221-rails-training-bundle-v2-{{ checksum "Gemfile.lock" }}
+          paths:
+            - vendor/bundle
+
+      - run:
+          name: Wait for DB
+          command: dockerize -wait tcp://localhost:3306 -timeout 1m
+
+      - run:
+          name: Database setup
+          command: |
+            cp ./config/database.example.yml ./config/database.yml
+            bundle exec rake db:create db:schema:load --trace
+
+      - run:
+          name: run rubocop
+          command: bundle exec rubocop --parallel
+
+      - run:
+          name: Run rspec
+          command: |
+            bundle exec rspec --require spec_helper \
+                              --color \
+                              --format documentation \
+                              spec
+
+      - store_test_results:
+          path: /tmp/test-results
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: test-results
+```
+
+- `version: 2`: phiên bản CircleCI sử dụng
+-  `jobs`: các job cần thực hiện để build code
+- `docker` (thuộc field executors): định nghĩa môi trường các jobs sẽ chạy, ở đây sử dụng docker container
+  - `image`: primary container mà mọi job được thực thi
+    - CircleCI cung cấp sẵn một số prebuilt image. Các  image này thường có thêm các tools hỗ trợ cho CI/CD
+    - Khi sử dụng image thì nên khai báo phiên bản càng cụ thể càng tốt. ensure the image does not change with upstream changes until you change the tag. For example, add `-jessie` or `-stretch` to the end of each of those containers to ensure you’re only using that version of the Debian base OS. Pin down those images to a specific point version, like `circleci/ruby:2.3.7-jessie`, or specify the OS version with `circleci/ruby:2.3-jessie`.
+   - images end with `-node`: Node.js variant Docker images the LTS release of Node.js is pre-installed
+   - images end with `-browser`: Chrome, Firefox, Java 8, and Geckodriver are pre-installed
+   - images end with `-jessie` or `stretch`: Debian base OS
+- `working_directory`: In which directory to run the steps. Default: ~/project (where project is a literal string, not the name of your specific project). 
+- Caching: make jobs faster on CircleCI by reusing the data from expensive fetch operations from previous jobs.
+  - A cache stores a hierarchy of files under a key. Use the cache to store data that makes your job faster, but in the case of a cache miss or zero cache restore the job will still run successfully, for example, by caching Npm, Gem, or Maven package directories.
+
+    ```
+       - restore_cache:
+         keys:
+           - m2-{{ checksum "pom.xml" }}
+           - m2- # used if checksum fails
+    ```
+  - `restore_cache`: restores caches in the order of keys listed in this step. Each cache key is namespaced to the project, and retrieval is prefix-matched. The second key is less specific than the first, it is more likely that there will be differences between the current state and the most recently generated cache. When a dependency tool runs, it would discover outdated dependencies and update them. 
+  - Choosing template for cache key: 
+    - `myapp-{{ checksum "package-lock.json" }}`: Cache will be regenerated every time something is changed in package-lock.json file, different branches of this project will generate the same cache key.
+    - `myapp-{{ .Branch }}-{{ checksum "package-lock.json" }} `: Cache will be regenerated every time something is changed in package-lock.json file, different branches of this project will generate separate cache keys.
+    - `myapp-{{ epoch }} `: Every build will generate separate cache keys.
+  - `save_cache`: save dependency cache
+- ` checkout`: checkout project source code into the job’s working_directory. This step is required. git checkout lấy source về (mặc định lưu trong thư mục ~/project)
+- `command`: The initial pipe, |, indicates that there will be more than one line of shell commands. 
+- `store_artifacts`: store artifacts (logs, binaries, test results). to be available in the web app or through the API
+  - Artifacts persist data after a job is completed and may be used for longer-term storage of the outputs of your build process.
+  - This step uploads two build artifacts: a file (/tmp/artifact-1) and a directory (/tmp/artifacts). After the artifacts successfully upload, view them in the Artifacts tab of the Job page in your browser. 
+  - `path` is a path to the file or directory to be uploaded as artifacts.
+  - `destination`(Optional) is a prefix added to the artifact paths in the artifacts API. The directory of the file specified in path is used as the default.
+- `store_test_results`:   upload test results so they display in builds’ Test Summary section and can be used for timing analysis.Summary section and can be used for timing analysis.

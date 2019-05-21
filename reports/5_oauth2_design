@@ -1,0 +1,85 @@
+# OAuth2 Design Model and Endpoint
+
+Reading: 
+
+- https://www.compose.com/articles/simple-oauth-with-mongodb-mysql/
+- https://auth0.com/docs/protocols/oauth2
+- https://ahmet.im/blog/designing-a-secure-rest-api-with-oauth2-you-can-be-proud-of/
+
+Triển khai: 
+
+- Sử dụng dịch vụ Auth0
+
+## Design Model
+- Service cung cấp dịch vụ OAuth cần có khả năng tạo và lưu trữ các thực thể như user, apps, app installations và app p
+When designing a Simple OAuth system, the service provider is required to create and store entities for users, apps, app installations and app permissions
+
+![](https://i.stack.imgur.com/2w9y1.png)
+
+## Endpoints
+An OAuth2 endpoint is a URL that clients call to request OAuth tokens (or auth codes)
+
+```
+$ curl -i -H 'ContentType: x-www-form-urlencoded' \
+-X POST 'https://docs-test.apigee.net/oauth/client_credential/accesstoken' \
+-d 'grant_type=client_credentials' \
+-H 'Authorization: Basic c3FIOG9vSGV4VHo4QzAySVg5T1JvNnJoZ3ExaVNyQWw6WjRsanRKZG5lQk9qUE1BVQ'
+```
+- OAuth 2.0 utilizes two endpoints: the Authorization endpoint and the Token endpoint.
+
+### Authorization endpoint
+- is used to interact with the resource owner and get the authorization to access the protected resource
+- The request parameters of the Authorization endpoint are:
+  - `response_type`
+  - `client_id`
+  - `redirect_uri`
+  - `scope`
+  - `state`
+- Is used by the Authorization Code and the Implicit grant types.
+- Difference between authorization code and access token:
+  - An authorization code is an opaque string, meant to be exchanged with an Access Token at the token endpoint. 
+  - An Access Token is an opaque string (or a JWT in Auth0 implementation) that denotes who has authorized which permissions (scopes) to which application.
+
+### Token endpoint
+- Is used by the application in order to get an Access Token or a Refresh Token.
+-  Is used by all flows, except for the Implicit Flow (since an Access Token is issued directly).
+
+## Các vấn đề bảo mật với OAuth2
+### Insufficient Redirect URI Validation
+-  Some authorization servers allow clients to register redirect URI patterns instead of complete redirect URIs. 
+- allows the attacker to obtain an authorization code or access token:
+  - by directly sending the user agent to a URI under the attackers control
+  - by exposing the OAuth credentials to an attacker by utilizing an open redirector at the client in conjunction with the way user agents handle URL fragments.
+
+### Access Token Injection
+- the adversary attempts to inject a stolen access token into a legitimate client on a device under his control. This will typically happen if the attacker wants to utilize a leaked access token to impersonate a user in a certain client.
+
+### CSRF attack
+- Có thể dùng param `state`
+
+![](https://cdn2.auth0.com/docs/media/articles/protocols/CSRF_Diagram.png)
+
+=> Tóm lại có 2 vấn đề bảo mật chính với loại Implicit grant type
+
+- the leakage of access token transmitted in the URL (also as fragment),
+- Injection of access token
+
+## Endpoint without OAuth2 example
+`/api/someEndpoint?username=xxx&passsword=xxx`
+
+### Problems 
+ - You can’t just transmit credentials over a non-secure connection. 
+ - It’s not convenient to pass username-password on all API requests.
+ - We can’t extend this authentication schema to 3rd party apps built on top of our API. Basically we can’t let them know passwords of our users
+
+## Endpoint with OAuth2 example
+`/oauth2/access_token?client_id=XXX&grant_type=**authorization_code**&code=XXXX`
+
+## Best practices with OAuth2
+- use state parameter to prevent CSRF attacks,
+- switch  to authorization code type from of implicit type and use PKCE,
+- implement short-lived and one-time use authorization codes,
+- return the access token in the body of HTTP response to POST request using CORS,
+- defend your frontend applications from XSS attacks that could steal tokens from localStorage,
+- watch out for the open redirection vulnerabilities. defend your frontend applications from XSS attacks that could steal tokens from localStorage,
+- watch out for the open redirection vulnerabilities.

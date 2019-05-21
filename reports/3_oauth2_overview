@@ -1,0 +1,50 @@
+# OAuth 2.0 Authorization Framework
+Reading: https://viblo.asia/p/introduction-to-oauth2-3OEqGjDpR9bL
+## Overview
+- Là một framework cho vấn đề authorization dựa trên token based authentication
+- Trao quyền xác thực người dùng cho service host các tài khoản người dùng và authorize quyền truy cập vào các tài khoản này của các ứng dụng bên thứ 3 mà không bị lộ password / credentials
+- Cách thực hiện: OAuth cho phép clients truy cập các resources bằng cách sử dụng một access token - token này đại diện cho quyền truy cập của client tới resource, thay vì sử dụng trực tiếp các thông tin xác thực của chủ sở hữu resources.
+
+## OAuth 2.0 Roles
+4 roles chính:
+
+- Client: Là những ứng dụng mong muốn truy cập vào dữ liệu người dùng. Trước khi được phép tương tác với dữ liệu thì ứng dụng này phải qua bước ủy quyền của User, và phải được kiểm tra xác nhận thông qua API. 
+- Resource Owner: người dùng ủy quyền cho ứng dụng cho phép truy cập tài khoản của họ. Sau đó ứng dụng được phép truy cập vào những dữ liệu người dùng nhưng bị giới hạn bởi những phạm vi (scope) được cấp phép.
+- Resource Server: host các tài khoản của người dùng và được bảo mật
+- Authorization Server: xác thực identity của người dùng và khởi tạo access tokens cho ứng dụng.
+![](https://assets.digitalocean.com/articles/oauth/abstract_flow.png)
+
+## OAuth 2.0 Authorization Flows: 4 kiểu
+- Authorization flow: cách để lấy access tokens
+### Authorization Code
+-  **Yêu cầu**: client cần tương tác với một user-agent/browser 
+- Flow
+![](https://cdn-images-1.medium.com/max/800/0*LCiX2ep4e2QVo-Pu.)
+### Resource Owner Password Credentials
+- **Yêu cầu**: The client must be highly trusted, as it directly handles user credentials. In most cases, the client should be a first-party app.
+- is optimized for server-side applications => Recommended use for server-side application
+- Flow:
+![](https://cdn-images-1.medium.com/max/800/0*IsGZosgvxFHqNJYA.)
+### Implicit Credentials
+- is designed for single-page Javascript apps or mobile apps
+- the client no longer receives an authorization code from the authorization server
+-  after the user agent successfully transfers credentials, the authorization server returns access tokens directly to the client
+- Refresh tokens are not allowed
+-  Flow
+![](https://cdn-images-1.medium.com/max/800/0*Sj1vaRSwveqUPyuL.)
+### Client Credentials
+- Clients in this flow use client IDs and secrets to identify themselves, and exchange them for access tokens with the authorization server
+- Refresh tokens are not allowed
+![](https://cdn-images-1.medium.com/max/800/0*jZtQNpjpoKkkSjsE.)
+
+## Application Registration
+Trước khi sử dụng Oauth cho ứng dụng, bạn phải đăng ký ứng dụng với bên cung cấp dịch vụ, một số thông tin cơ bản cần đăng ký như sau:
+
+- Tên ứng dụng (Application Name)
+- Website của ứng dụng (Application Website)
+- Redirect URI hoặc Callback URL: chính là địa chỉ sẽ quay về sau khi quá trình ủy quyền hoàn tất (cho phép hoặc từ chối từ phía User), chính vì thế mà địa chỉ quay về đó chính là nơi bạn sẽ phải thực hiện xử lý cho authorization codes hoặc access tokens.
+
+### Client Credentials: 
+- is Client ID and Client Secret
+- Client Identifier: là một chuỗi ký tự được sử dụng bởi Service API để định danh ứng dụng, đồng thời cũng được dùng để xây dựng "authorization URL" hiển thị phía User.
+- Client Secret: là một chuỗi ký tự được sử dụng để xác thực định danh (ID) của ứng dụng khi ứng dụng yêu cầu truy cập thông tin tài khoản của User. Chuỗi này được giữ bí mật giữa Application và API. between the application and the API.the API.nt Secret is used to authenticate the identity of the application to the service API when the application requests to access a user's account, and must be kept private between the application and the API.the API.e API when the application requests to access a user's account, and must be kept private between the application and the API.the API.ion and the API.the API.
