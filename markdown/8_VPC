@@ -1,0 +1,81 @@
+# Virtual Private Cloud
+Reading: 
+
+- https://docs.amazonaws.cn/en_us/vpc/latest/userguide/what-is-amazon-vpc.html
+- https://docs.amazonaws.cn/en_us/vpc/latest/userguide/VPC_Subnets.html#vpc-subnet-basics
+- https://medium.com/@devopslearning/introduction-to-vpc-part-1-cbca3b189329
+- https://medium.com/@nwoyesamuelc/designing-your-virtual-private-cloud-vpc-ddd46a2c6414 
+- https://www.computer-networking.info/2nd/html/protocols/bgp.html
+- https://vietnamnet.vn/cntt/networking/2005/09/486521/
+## Overview
+- Trước khi xuất hiện  VPC thì chúng ta triển khai các hệ thống thông tin trên  một data center (nơi đặt các hệ thống máy tính, ổ lưu trữ, các thành phần mạng, etc.)   Các data center là nơi để chúng ta deploy tất cả kiến trúc hệ thống
+
+![](https://imagesvc.timeincapp.com/v3/mm/image?url=https%3A%2F%2Ffortunedotcom.files.wordpress.com%2F2015%2F06%2Fscreen-shot-2015-06-24-at-11-54-41-am.png&w=800&q=85)
+
+- VPC là một data center nhưng thay vì việc phải xây dựng hẳn một tòa nhà vật lý thì chúng ta chỉ mất vài phút sử dụng các api của nhà cung cấp dịch vụ infra để dựng nên một data center. 
+=> Tóm lại VPC là một data center trên đám mây của khách hàng. Khách hàng có thể tự define dải địa chỉ IP, subnet, etc. 
+
+## Đặc  điểm
+– Triển khai nhanh: Nhà cung cấp dịch vụ VPC có thể cung cấp tài nguyên cần thiết một cách ngay lập tức trên hệ thống của họ theo yêu cầu. Bạn có thể chọn các gói tài nguyên tính toán (compute resources) bao gồm vCPU, vRAM, IP, VLAN, Storage theo nhu cầu sử dụng. Thời gian hoàn chỉnh hệ thống phụ thuộc vào mức độ cấu hình các máy chủ ảo Virtual Server – VS trong hệ thống.
+
+– Điều chỉnh tăng/ giảm tài nguyên (resource pool) dùng riêng khi có nhu cầu một cách đơn giản, và được nhà cung cấp dịch vụ đáp ứng tức thời.
+
+– Chủ động cấu hình mạng cho các Virtual Server – VS (hay còn gọi là các Virtual Machine – VM hay Cloud Server – CS).
+
+– Được tạo không giới hạn số lượng các VS miễn sao không vượt quá resource pool được cấp.
+
+## VPC trong kiến trúc AWS
+- nơi để chạy, quản lý các AWS resources mà chúng ta đã define trước đó
+![](https://images.viblo.asia/3a5a5ae9-41e5-412b-bafa-2a31ed83fa54.png)
+
+![](https://images.viblo.asia/977aea0f-30ef-4722-be2b-d338ffdbd7ab.png)
+
+- Khi mới tạo một tài khoản AWS thì AWS đã cung cấp sẵn một vpc mặc định 
+
+### AWS regions
+
+- Là một khu vực địa lý có các availability zones map với các data center trong từng vùng. Các region sẽ độc lập với nhau veeff mặt địa lý, nguồn điện, nguồn nước,... 
+
+### AWS availability zones
+- Là một data center về mặt logic trong một region mà người dùng aws có thể sử dụng. Mỗi zone trong một vùng sẽ độc lập riêng rẽ với nhau. Một zone có thể được tạo nên bởi một hoặc nhiều data center vật lý. hiện tại một availability zone được back bởi nhiều nhất là 5 data center.
+- Một zone có thể được tạo nên bởi nhiều data center vật lý nhưng không có 2 zone khác nhau lại sử dụng chung một data center.  availability zone us-east-1a của một account.  Abstracting things further, to distribute resources evenly across the zones in a given region, Amazon independently maps zones to identifiers for each account. This means the us-east-1a availability zone for one account may not be backed by the same data centers as us-east-1a for another account.
+
+### VPC
+- A virtual private cloud (VPC) is a virtual network dedicated to your AWS account. It is logically isolated from other virtual networks in the AWS Cloud.  It is a logically isolated virtual network, spanning an entire AWS Region, where your EC2 instances are launched. A VPC is primarily concerned with enabling the following capabilities:
+  - Isolating your AWS resources from other accounts
+  - Routing network traffic to and from your instances
+  - Protecting your instances from network intrusion
+- You can launch your AWS resources, such as Amazon EC2 instances, into your VPC. You can specify an IP address range for the VPC, add subnets, associate security groups, and configure route tables.
+- When you create a VPC, you must specify a range of IPv4 addresses for the VPC in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16. 
+- 6 thành phần chính của VPC: 
+  - VPC CIDR Block
+  - Subnet
+  - Gateways
+  - Route Table
+  - Network Access Control Lists (ACLs)
+  - Security Group
+
+####  Classless Inter-Domain Routing (CIDR)
+
+- the Internet is composed of more than 45,000 different networks [1] called domains. Each domain is composed of a group of routers and hosts that are managed by the same organisation.
+- Sinh ra để giải quyết vấn đề
+  - Hết địa chỉ IP: Theo thông thường thì địa chỉ internet được chia ra thành các lớp địa chỉ, và được biết đến nhiều nhất là các lớp A, B, C. Mỗi địa chỉ đều có 2 phần: một phần xác định địa chỉ duy nhất cho mạng và phần thứ hai xác định một địa chỉ host duy nhất trong mạng đó.
+  - Hết khả năng cần thiết cho bảng định tuyến toàn cầu
+
+#### Subnet
+
+a range of IP addresses in your VPC. You can launch AWS resources into a specified subnet. Use a public subnet for resources that must be connected to the internet, and a private subnet for resources that won't be connected to the internet.esources that won't be connected to the internet.onnected to the internet, and a private subnet for resources that won't be connected to the internet.connected to the internet..n't be connected to the internet.onnected to the internet, and a private subnet for resources that won't be connected to the internet.connected to the internet..
+
+## Phân biệt VPN,  VPS, VPC
+### VPN
+- A VPN makes the private network (such as a company network) of an entity accessible through public infrastructure, primarily the internet. A VPN can allow users to exchange data efficiently across shared or public networks, as though they are directly linked to the private network. Commercial VPNs secure traffic in an encrypted tunnel, then route that traffic through a server in a remote location of the user’s choosing. This masks the location, IP address, and online activity of the user.
+=> A VPN is a technology you can use to carry out online activities securely and privately.
+
+### VPS
+- A VPS refers to the sharing of computing resources of a main host in a data center. Since a single host is partitioned into several virtual compartments where each unit is capable of functioning independently, each ‘instance’ is what is called a virtual private server.
+-  VPS technology is normally used for various functions, including hosting websites and hosting remote applications. It is established when a gigantic physical server is split so that several separate servers can run on it without depending on one another.
+=> use to host your website and applications, where you benefit from superuser-level access to the server while still sharing the computing resources.
+
+### VPN
+- is similar to a VPS. But where a VPS uses a fixed portion of a server with fixed resources, a VPC can manage large numbers of virtual machines and are not limited to a single, fixed-resource server. Users are not bound by the limitation sof the underlying hardware.
+=>  an elastic cloud service that can be used to host websites and applications. It can be turned off or on at will and can quickly scale to meet resource needs.
